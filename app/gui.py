@@ -58,6 +58,11 @@ class TargetRowWidgets:
     multiplier_label: ctk.CTkLabel
 
 
+MULT_MIN = 0.1
+MULT_MAX = 100.0
+MULT_STEPS = 999  # 0.1 increments from 0.1 → 100
+
+
 class CopyTradeApp(ctk.CTk):
     def __init__(self) -> None:
         super().__init__()
@@ -66,6 +71,7 @@ class CopyTradeApp(ctk.CTk):
         self.target_rows: list[TargetRowWidgets] = []
         self._status_pulse_job: str | None = None
         self._pulse_on = False
+        self._rpc_expanded = False
 
         ctk.set_appearance_mode("dark")
         ctk.set_default_color_theme("dark-blue")
@@ -304,13 +310,13 @@ class CopyTradeApp(ctk.CTk):
         multiplier_label.grid(row=0, column=1, sticky="e")
 
         def on_slide(value: float, lbl: ctk.CTkLabel = multiplier_label) -> None:
-            lbl.configure(text=f"{value:.1f}x")
+            lbl.configure(text=self._format_multiplier(value))
 
         multiplier_slider = ctk.CTkSlider(
             mult_frame,
-            from_=1,
-            to=50,
-            number_of_steps=49,
+            from_=MULT_MIN,
+            to=MULT_MAX,
+            number_of_steps=MULT_STEPS,
             command=on_slide,
             button_color=Theme.PINK,
             button_hover_color=Theme.PINK_SOFT,
@@ -338,10 +344,18 @@ class CopyTradeApp(ctk.CTk):
                 copy_key_entry.insert(0, target.copy_wallet_key)
             self._set_row_multiplier(row_widgets, target.multiplier)
 
+    @staticmethod
+    def _format_multiplier(value: float) -> str:
+        if value < 1:
+            return f"{value:.1f}x"
+        if value >= 10 and abs(value - round(value)) < 0.05:
+            return f"{int(round(value))}x"
+        return f"{value:.1f}x"
+
     def _set_row_multiplier(self, row: TargetRowWidgets, value: float) -> None:
-        clamped = max(1.0, min(50.0, value))
+        clamped = max(MULT_MIN, min(MULT_MAX, value))
         row.multiplier_slider.set(clamped)
-        row.multiplier_label.configure(text=f"{clamped:.1f}x")
+        row.multiplier_label.configure(text=self._format_multiplier(clamped))
 
     def _remove_target_row(self, row: TargetRowWidgets) -> None:
         if len(self.target_rows) <= 1:
@@ -375,14 +389,6 @@ class CopyTradeApp(ctk.CTk):
         )
         left_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
         left_outer.grid_columnconfigure(0, weight=1)
-
-        conn = self._card(left_outer)
-        conn.pack(fill="x", pady=(0, 12))
-        conn.grid_columnconfigure(1, weight=1)
-        self._section_title(conn, "🌐", "Connection", "RPC endpoint", row=0)
-        self.rpc_entry = self._labeled_entry(
-            conn, "RPC URL", 1, icon="🔗", placeholder="https://your-fast-rpc.solana.com"
-        )
 
         targets_card = self._card(left_outer)
         targets_card.pack(fill="x", pady=(0, 12))
@@ -503,6 +509,8 @@ class CopyTradeApp(ctk.CTk):
             justify="left",
         ).pack(padx=16, pady=12, anchor="w")
 
+        self._build_rpc_panel(left_outer)
+
         right = self._card(body)
         right.grid(row=0, column=1, sticky="nsew")
         right.grid_columnconfigure(0, weight=1)
@@ -577,6 +585,55 @@ class CopyTradeApp(ctk.CTk):
         self.log_box.configure(state="disabled")
 
         self._append_log("hii~ add wallet targets and hit start ✨")
+
+    def _build_rpc_panel(self, parent) -> None:
+        rpc_card = ctk.CTkFrame(
+            parent,
+            corner_radius=12,
+            fg_color=Theme.BG,
+            border_width=1,
+            border_color=Theme.CARD_BORDER,
+        )
+        rpc_card.pack(fill="x", pady=(10, 0))
+
+        self.rpc_toggle_btn = ctk.CTkButton(
+            rpc_card,
+            text="🌐  RPC settings   ▸",
+            command=self._toggle_rpc,
+            height=32,
+            corner_radius=10,
+            font=Theme.FONT_SMALL,
+            fg_color="transparent",
+            hover_color=Theme.CARD_BORDER,
+            text_color=Theme.TEXT_DIM,
+            anchor="w",
+        )
+        self.rpc_toggle_btn.pack(fill="x", padx=8, pady=6)
+
+        self.rpc_panel = ctk.CTkFrame(rpc_card, fg_color="transparent")
+        self.rpc_panel.grid_columnconfigure(0, weight=1)
+
+        ctk.CTkLabel(
+            self.rpc_panel,
+            text="only change this if you have a custom RPC endpoint",
+            font=Theme.FONT_SMALL,
+            text_color=Theme.TEXT_DIM,
+        ).grid(row=0, column=0, padx=12, pady=(4, 6), sticky="w")
+
+        self.rpc_entry = self._entry(
+            self.rpc_panel,
+            placeholder_text="https://your-fast-rpc.solana.com",
+        )
+        self.rpc_entry.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="ew")
+
+    def _toggle_rpc(self) -> None:
+        self._rpc_expanded = not self._rpc_expanded
+        if self._rpc_expanded:
+            self.rpc_panel.pack(fill="x", after=self.rpc_toggle_btn)
+            self.rpc_toggle_btn.configure(text="🌐  RPC settings   ▾", text_color=Theme.TEXT_MUTED)
+        else:
+            self.rpc_panel.pack_forget()
+            self.rpc_toggle_btn.configure(text="🌐  RPC settings   ▸", text_color=Theme.TEXT_DIM)
 
     def _toggle_key_visibility(self) -> None:
         show = "" if self.show_key_var.get() else "♡"
