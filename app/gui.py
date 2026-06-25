@@ -54,7 +54,8 @@ class TargetRowWidgets:
     label_entry: ctk.CTkEntry
     source_entry: ctk.CTkEntry
     copy_key_entry: ctk.CTkEntry
-    multiplier_entry: ctk.CTkEntry
+    multiplier_slider: ctk.CTkSlider
+    multiplier_label: ctk.CTkLabel
 
 
 class CopyTradeApp(ctk.CTk):
@@ -289,21 +290,43 @@ class CopyTradeApp(ctk.CTk):
 
         mult_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
         mult_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=12, pady=(4, 12))
-        ctk.CTkLabel(mult_frame, text="🪄 multiplier", font=Theme.FONT_SMALL, text_color=Theme.TEXT_DIM).pack(
-            side="left"
+        mult_frame.grid_columnconfigure(0, weight=1)
+
+        mult_top = ctk.CTkFrame(mult_frame, fg_color="transparent")
+        mult_top.grid(row=0, column=0, sticky="ew")
+        mult_top.grid_columnconfigure(0, weight=1)
+        ctk.CTkLabel(
+            mult_top, text="🪄 multiplier", font=Theme.FONT_SMALL, text_color=Theme.TEXT_DIM
+        ).grid(row=0, column=0, sticky="w")
+        multiplier_label = ctk.CTkLabel(
+            mult_top, text="10.0x", font=("Segoe UI", 15, "bold"), text_color=Theme.PINK
         )
-        multiplier_entry = self._entry(mult_frame, placeholder_text="10", width=70)
-        multiplier_entry.pack(side="right")
-        ctk.CTkLabel(mult_frame, text="x", font=("Segoe UI", 14, "bold"), text_color=Theme.PINK).pack(
-            side="right", padx=(0, 4)
+        multiplier_label.grid(row=0, column=1, sticky="e")
+
+        def on_slide(value: float, lbl: ctk.CTkLabel = multiplier_label) -> None:
+            lbl.configure(text=f"{value:.1f}x")
+
+        multiplier_slider = ctk.CTkSlider(
+            mult_frame,
+            from_=1,
+            to=50,
+            number_of_steps=49,
+            command=on_slide,
+            button_color=Theme.PINK,
+            button_hover_color=Theme.PINK_SOFT,
+            progress_color=Theme.LAVENDER,
+            fg_color=Theme.INPUT_BORDER,
         )
+        multiplier_slider.set(10)
+        multiplier_slider.grid(row=1, column=0, sticky="ew", pady=(6, 0))
 
         row_widgets = TargetRowWidgets(
             frame=row_frame,
             label_entry=label_entry,
             source_entry=source_entry,
             copy_key_entry=copy_key_entry,
-            multiplier_entry=multiplier_entry,
+            multiplier_slider=multiplier_slider,
+            multiplier_label=multiplier_label,
         )
         self.target_rows.append(row_widgets)
 
@@ -313,7 +336,12 @@ class CopyTradeApp(ctk.CTk):
             source_entry.insert(0, target.source_wallet)
             if target.copy_wallet_key:
                 copy_key_entry.insert(0, target.copy_wallet_key)
-            multiplier_entry.insert(0, str(target.multiplier))
+            self._set_row_multiplier(row_widgets, target.multiplier)
+
+    def _set_row_multiplier(self, row: TargetRowWidgets, value: float) -> None:
+        clamped = max(1.0, min(50.0, value))
+        row.multiplier_slider.set(clamped)
+        row.multiplier_label.configure(text=f"{clamped:.1f}x")
 
     def _remove_target_row(self, row: TargetRowWidgets) -> None:
         if len(self.target_rows) <= 1:
@@ -592,7 +620,7 @@ class CopyTradeApp(ctk.CTk):
             source = row.source_entry.get().strip()
             copy_key = row.copy_key_entry.get().strip()
             label = row.label_entry.get().strip()
-            mult_text = row.multiplier_entry.get().strip() or "10"
+            multiplier = float(row.multiplier_slider.get())
 
             if not source and not copy_key:
                 continue
@@ -602,12 +630,6 @@ class CopyTradeApp(ctk.CTk):
                     "incomplete target~",
                     f"Wallet #{i} needs both a source wallet and copy wallet key.",
                 )
-                return None
-
-            try:
-                multiplier = float(mult_text)
-            except ValueError:
-                messagebox.showerror("oops~", f"Wallet #{i} multiplier must be a number.")
                 return None
 
             if multiplier <= 0:
