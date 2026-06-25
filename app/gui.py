@@ -53,9 +53,9 @@ class TargetRowWidgets:
     frame: ctk.CTkFrame
     label_entry: ctk.CTkEntry
     source_entry: ctk.CTkEntry
-    copy_key_entry: ctk.CTkEntry
     multiplier_slider: ctk.CTkSlider
     multiplier_label: ctk.CTkLabel
+    mult_frame: ctk.CTkFrame
 
 
 MULT_MIN = 0.1
@@ -260,6 +260,8 @@ class CopyTradeApp(ctk.CTk):
 
     def _add_target_row(self, target: WalletTarget | None = None) -> None:
         idx = len(self.target_rows) + 1
+        default_name = f"wallet {idx}"
+
         row_frame = ctk.CTkFrame(
             self.targets_list,
             corner_radius=14,
@@ -267,21 +269,22 @@ class CopyTradeApp(ctk.CTk):
             border_width=1,
             border_color=Theme.CARD_BORDER,
         )
-        row_frame.grid_columnconfigure(1, weight=1)
+        row_frame.grid_columnconfigure(0, weight=1)
+        row_frame.grid_rowconfigure(2, weight=0, minsize=52)
 
         header = ctk.CTkFrame(row_frame, fg_color="transparent")
-        header.grid(row=0, column=0, columnspan=3, sticky="ew", padx=12, pady=(10, 4))
-        header.grid_columnconfigure(1, weight=1)
+        header.grid(row=0, column=0, sticky="ew", padx=12, pady=(10, 6))
+        header.grid_columnconfigure(0, weight=1)
 
-        ctk.CTkLabel(
-            header, text=f"👛  wallet #{idx}", font=Theme.FONT_BODY, text_color=Theme.LAVENDER
-        ).grid(row=0, column=0, sticky="w")
+        label_entry = self._entry(header, placeholder_text=default_name)
+        label_entry.insert(0, default_name)
+        label_entry.grid(row=0, column=0, sticky="ew", padx=(0, 8))
 
-        label_entry = self._entry(header, placeholder_text="nickname (optional)")
-        label_entry.grid(row=0, column=1, sticky="ew", padx=(8, 8))
+        row_widgets_holder: list[TargetRowWidgets] = []
 
         def remove_this() -> None:
-            self._remove_target_row(row_widgets)
+            if row_widgets_holder:
+                self._remove_target_row(row_widgets_holder[0])
 
         remove_btn = ctk.CTkButton(
             header,
@@ -294,22 +297,16 @@ class CopyTradeApp(ctk.CTk):
             text_color=Theme.TEXT,
             command=remove_this,
         )
-        remove_btn.grid(row=0, column=2, sticky="e")
+        remove_btn.grid(row=0, column=1, sticky="e")
 
-        ctk.CTkLabel(row_frame, text="👀 source", font=Theme.FONT_SMALL, text_color=Theme.TEXT_DIM).grid(
-            row=1, column=0, padx=12, pady=4, sticky="w"
+        source_entry = self._entry(
+            row_frame,
+            placeholder_text="target wallet address",
         )
-        source_entry = self._entry(row_frame, placeholder_text="source wallet public key")
-        source_entry.grid(row=1, column=1, columnspan=2, padx=12, pady=4, sticky="ew")
-
-        ctk.CTkLabel(row_frame, text="🔐 copy key", font=Theme.FONT_SMALL, text_color=Theme.TEXT_DIM).grid(
-            row=2, column=0, padx=12, pady=4, sticky="w"
-        )
-        copy_key_entry = self._entry(row_frame, placeholder_text="copy wallet private key", show="♡")
-        copy_key_entry.grid(row=2, column=1, columnspan=2, padx=12, pady=4, sticky="ew")
+        source_entry.grid(row=1, column=0, sticky="ew", padx=12, pady=(0, 6))
 
         mult_frame = ctk.CTkFrame(row_frame, fg_color="transparent")
-        mult_frame.grid(row=3, column=0, columnspan=3, sticky="ew", padx=12, pady=(4, 12))
+        mult_frame.grid(row=2, column=0, sticky="ew", padx=12, pady=(0, 12))
         mult_frame.grid_columnconfigure(0, weight=1)
 
         mult_top = ctk.CTkFrame(mult_frame, fg_color="transparent")
@@ -319,7 +316,7 @@ class CopyTradeApp(ctk.CTk):
             mult_top, text="🪄 multiplier", font=Theme.FONT_SMALL, text_color=Theme.TEXT_DIM
         ).grid(row=0, column=0, sticky="w")
         multiplier_label = ctk.CTkLabel(
-            mult_top, text="10.0x", font=("Segoe UI", 15, "bold"), text_color=Theme.PINK
+            mult_top, text="10x", font=("Segoe UI", 15, "bold"), text_color=Theme.PINK
         )
         multiplier_label.grid(row=0, column=1, sticky="e")
 
@@ -332,6 +329,7 @@ class CopyTradeApp(ctk.CTk):
             to=MULT_MAX,
             number_of_steps=MULT_STEPS,
             command=on_slide,
+            height=18,
             button_color=Theme.PINK,
             button_hover_color=Theme.PINK_SOFT,
             progress_color=Theme.LAVENDER,
@@ -344,26 +342,27 @@ class CopyTradeApp(ctk.CTk):
             frame=row_frame,
             label_entry=label_entry,
             source_entry=source_entry,
-            copy_key_entry=copy_key_entry,
             multiplier_slider=multiplier_slider,
             multiplier_label=multiplier_label,
+            mult_frame=mult_frame,
         )
+        row_widgets_holder.append(row_widgets)
         self.target_rows.append(row_widgets)
 
         if target:
-            if target.label:
-                label_entry.insert(0, target.label)
+            label_entry.delete(0, "end")
+            label_entry.insert(0, target.label or default_name)
             source_entry.insert(0, target.source_wallet)
-            if target.copy_wallet_key:
-                copy_key_entry.insert(0, target.copy_wallet_key)
             self._set_row_multiplier(row_widgets, target.multiplier)
 
         self._relayout_target_rows()
 
     def _relayout_target_rows(self) -> None:
         for i, row in enumerate(self.target_rows):
-            row.frame.grid(row=i, column=0, sticky="ew", padx=12, pady=5)
-            self.targets_list.grid_rowconfigure(i, weight=0)
+            row.frame.grid(row=i, column=0, sticky="new", padx=4, pady=5)
+            row.frame.grid_columnconfigure(0, weight=1)
+            row.mult_frame.grid_columnconfigure(0, weight=1)
+            self.targets_list.grid_rowconfigure(i, weight=0, minsize=130)
         self.targets_list.grid_columnconfigure(0, weight=1)
         if self.target_rows:
             self.targets_list.grid_rowconfigure(len(self.target_rows), weight=1)
@@ -387,16 +386,7 @@ class CopyTradeApp(ctk.CTk):
             return
         row.frame.destroy()
         self.target_rows.remove(row)
-        self._renumber_target_labels()
         self._relayout_target_rows()
-
-    def _renumber_target_labels(self) -> None:
-        for i, row in enumerate(self.target_rows, start=1):
-            for child in row.frame.winfo_children():
-                if isinstance(child, ctk.CTkFrame):
-                    for lbl in child.winfo_children():
-                        if isinstance(lbl, ctk.CTkLabel) and "wallet #" in str(lbl.cget("text")):
-                            lbl.configure(text=f"👛  wallet #{i}")
 
     def _build_body(self) -> None:
         body = ctk.CTkFrame(self, fg_color="transparent")
@@ -429,7 +419,7 @@ class CopyTradeApp(ctk.CTk):
         ).grid(row=0, column=0, sticky="w")
         ctk.CTkLabel(
             targets_header,
-            text="each source → copy wallet + multiplier",
+            text="wallet to watch + multiplier",
             font=Theme.FONT_SMALL,
             text_color=Theme.TEXT_DIM,
         ).grid(row=1, column=0, sticky="w", pady=(2, 0))
@@ -447,31 +437,25 @@ class CopyTradeApp(ctk.CTk):
         self.targets_list.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 8))
         self.targets_list.grid_columnconfigure(0, weight=1)
 
-        self.show_key_var = ctk.BooleanVar(value=False)
-        ctk.CTkCheckBox(
-            targets_card,
-            text="👁  show all private keys",
-            variable=self.show_key_var,
-            command=self._toggle_key_visibility,
-            font=Theme.FONT_SMALL,
-            text_color=Theme.TEXT_MUTED,
-            fg_color=Theme.PINK,
-            hover_color=Theme.PINK_SOFT,
-            border_color=Theme.CARD_BORDER,
-            checkmark_color="#1a1028",
-        ).grid(row=2, column=0, padx=18, pady=(0, 14), sticky="w")
-
         settings = self._card(left_outer)
         settings.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         settings.grid_columnconfigure(1, weight=1)
         self._section_title(settings, "✨", "Global settings", row=0)
 
-        self.slippage_entry = self._labeled_entry(settings, "Slippage (bps)", 1, icon="🌊", placeholder="300")
-        self.poll_entry = self._labeled_entry(settings, "Poll interval (s)", 2, icon="⏱", placeholder="3")
-        self.min_trade_entry = self._labeled_entry(settings, "Min trade (SOL)", 3, icon="💧", placeholder="0.01")
+        self.copy_key_entry = self._labeled_entry(
+            settings,
+            "Copy wallet key",
+            1,
+            icon="🔐",
+            show="♡",
+            placeholder="Base58 private key for all copies",
+        )
+        self.slippage_entry = self._labeled_entry(settings, "Slippage (bps)", 2, icon="🌊", placeholder="300")
+        self.poll_entry = self._labeled_entry(settings, "Poll interval (s)", 3, icon="⏱", placeholder="3")
+        self.min_trade_entry = self._labeled_entry(settings, "Min trade (SOL)", 4, icon="💧", placeholder="0.01")
 
         opts = ctk.CTkFrame(settings, fg_color="transparent")
-        opts.grid(row=4, column=0, columnspan=2, padx=18, pady=(4, 16), sticky="w")
+        opts.grid(row=5, column=0, columnspan=2, padx=18, pady=(4, 16), sticky="w")
 
         self.dry_run_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
@@ -527,7 +511,7 @@ class CopyTradeApp(ctk.CTk):
         warning_card.grid_columnconfigure(0, weight=1)
         self.warning_label = ctk.CTkLabel(
             warning_card,
-            text="🐱  each target can use a different copy wallet + multiplier. never share your private keys~",
+            text="🐱  add wallets to watch — each copies to your copy wallet at its own multiplier~",
             font=Theme.FONT_SMALL,
             text_color=Theme.PEACH,
             wraplength=360,
@@ -661,11 +645,8 @@ class CopyTradeApp(ctk.CTk):
         left_width = max(260, int(width * 0.38) - 60)
         if hasattr(self, "warning_label"):
             self.warning_label.configure(wraplength=left_width)
-
-    def _toggle_key_visibility(self) -> None:
-        show = "" if self.show_key_var.get() else "♡"
-        for row in self.target_rows:
-            row.copy_key_entry.configure(show=show)
+        if hasattr(self, "target_rows"):
+            self._relayout_target_rows()
 
     def _set_status_pill(self, emoji: str, text: str, bg: str, fg: str) -> None:
         for child in self.status_pill.winfo_children():
@@ -683,6 +664,8 @@ class CopyTradeApp(ctk.CTk):
     def _load_config_into_form(self) -> None:
         c = self.config
         self.rpc_entry.insert(0, c.rpc_url)
+        if c.copy_wallet_key:
+            self.copy_key_entry.insert(0, c.copy_wallet_key)
         self.slippage_entry.insert(0, str(c.slippage_bps))
         self.poll_entry.insert(0, str(c.poll_interval_sec))
         self.min_trade_entry.insert(0, str(c.min_sol_trade))
@@ -703,33 +686,24 @@ class CopyTradeApp(ctk.CTk):
 
         for i, row in enumerate(self.target_rows, start=1):
             source = row.source_entry.get().strip()
-            copy_key = row.copy_key_entry.get().strip()
-            label = row.label_entry.get().strip()
+            label = row.label_entry.get().strip() or f"wallet {i}"
             multiplier = float(row.multiplier_slider.get())
 
-            if not source and not copy_key:
+            if not source:
                 continue
 
-            if not source or not copy_key:
-                messagebox.showerror(
-                    "incomplete target~",
-                    f"Wallet #{i} needs both a source wallet and copy wallet key.",
-                )
-                return None
-
             if multiplier <= 0:
-                messagebox.showerror("oops~", f"Wallet #{i} multiplier must be greater than 0.")
+                messagebox.showerror("oops~", f"{label} multiplier must be greater than 0.")
                 return None
 
             if source in seen_sources:
-                messagebox.showerror("duplicate~", f"Wallet #{i} source is already being watched.")
+                messagebox.showerror("duplicate~", f"{label} is already being watched.")
                 return None
             seen_sources.add(source)
 
             targets.append(
                 WalletTarget(
                     source_wallet=source,
-                    copy_wallet_key=copy_key,
                     multiplier=multiplier,
                     label=label,
                 )
@@ -754,8 +728,14 @@ class CopyTradeApp(ctk.CTk):
         if targets is None:
             return None
 
+        copy_key = self.copy_key_entry.get().strip()
+        if not copy_key:
+            messagebox.showerror("missing info~", "Copy wallet private key is required in global settings.")
+            return None
+
         return AppConfig(
             rpc_url=self.rpc_entry.get().strip() or AppConfig.rpc_url,
+            copy_wallet_key=copy_key,
             targets=targets,
             slippage_bps=slippage,
             poll_interval_sec=poll,
@@ -888,7 +868,7 @@ class CopyTradeApp(ctk.CTk):
             "ready to go? 🚀",
             f"Mirror {len(cfg.targets)} wallet target(s):\n{summary}\n\n"
             f"Dry run: {'ON 🧪' if cfg.dry_run else 'OFF'}\n\n"
-            "Only continue if copy wallets are funded and you're okay with the risk~",
+            "Only continue if your copy wallet is funded and you're okay with the risk~",
         )
         if not confirmed:
             return
@@ -899,6 +879,7 @@ class CopyTradeApp(ctk.CTk):
 
         self.monitor = MultiTradeMonitor(
             rpc_url=cfg.rpc_url,
+            copy_wallet_key=cfg.copy_wallet_key,
             targets=cfg.targets,
             slippage_bps=cfg.slippage_bps,
             poll_interval=cfg.poll_interval_sec,

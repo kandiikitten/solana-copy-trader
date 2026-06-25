@@ -13,7 +13,6 @@ JUPITER_SWAP_URL = "https://quote-api.jup.ag/v6/swap"
 @dataclass
 class WalletTarget:
     source_wallet: str = ""
-    copy_wallet_key: str = ""
     multiplier: float = 10.0
     label: str = ""
 
@@ -28,6 +27,7 @@ class WalletTarget:
 @dataclass
 class AppConfig:
     rpc_url: str = "https://api.mainnet-beta.solana.com"
+    copy_wallet_key: str = ""
     targets: list[WalletTarget] = field(default_factory=list)
     slippage_bps: int = 300
     poll_interval_sec: float = 3.0
@@ -43,31 +43,39 @@ class AppConfig:
             data = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
             remember_key = bool(data.get("remember_key", False))
 
+            copy_wallet_key = data.get("copy_wallet_key", "")
+
+            targets: list[WalletTarget] = []
             if "targets" in data:
-                targets = []
                 for item in data["targets"]:
                     if not isinstance(item, dict):
                         continue
-                    t = WalletTarget(
-                        source_wallet=item.get("source_wallet", ""),
-                        copy_wallet_key=item.get("copy_wallet_key", "") if remember_key else "",
-                        multiplier=float(item.get("multiplier", 10.0)),
-                        label=item.get("label", ""),
+                    if not copy_wallet_key and remember_key:
+                        copy_wallet_key = item.get("copy_wallet_key", "")
+                    targets.append(
+                        WalletTarget(
+                            source_wallet=item.get("source_wallet", ""),
+                            multiplier=float(item.get("multiplier", 10.0)),
+                            label=item.get("label", ""),
+                        )
                     )
-                    targets.append(t)
             elif data.get("source_wallet"):
+                if not copy_wallet_key:
+                    copy_wallet_key = data.get("copy_wallet_key", "") if remember_key else ""
                 targets = [
                     WalletTarget(
                         source_wallet=data.get("source_wallet", ""),
-                        copy_wallet_key=data.get("copy_wallet_key", "") if remember_key else "",
                         multiplier=float(data.get("multiplier", 10.0)),
+                        label=data.get("label", ""),
                     )
                 ]
-            else:
-                targets = []
+
+            if not remember_key:
+                copy_wallet_key = ""
 
             return cls(
                 rpc_url=data.get("rpc_url", cls.rpc_url),
+                copy_wallet_key=copy_wallet_key,
                 targets=targets,
                 slippage_bps=int(data.get("slippage_bps", 300)),
                 poll_interval_sec=float(data.get("poll_interval_sec", 3.0)),
@@ -82,6 +90,5 @@ class AppConfig:
         CONFIG_DIR.mkdir(parents=True, exist_ok=True)
         payload = asdict(self)
         if not self.remember_key:
-            for target in payload["targets"]:
-                target["copy_wallet_key"] = ""
+            payload["copy_wallet_key"] = ""
         CONFIG_FILE.write_text(json.dumps(payload, indent=2), encoding="utf-8")

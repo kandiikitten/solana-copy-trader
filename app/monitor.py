@@ -143,6 +143,7 @@ class MultiTradeMonitor:
     def __init__(
         self,
         rpc_url: str,
+        copy_wallet_key: str,
         targets: list[WalletTarget],
         slippage_bps: int,
         poll_interval: float,
@@ -161,7 +162,7 @@ class MultiTradeMonitor:
             label = target.display_name()
             executor = SwapExecutor(
                 rpc_url=rpc_url,
-                copy_wallet_key=target.copy_wallet_key,
+                copy_wallet_key=copy_wallet_key,
                 multiplier=target.multiplier,
                 slippage_bps=slippage_bps,
                 dry_run=dry_run,
