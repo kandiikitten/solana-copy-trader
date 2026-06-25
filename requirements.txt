@@ -1,0 +1,5 @@
+customtkinter>=5.2.2
+solana>=0.34.3
+solders>=0.21.0
+requests>=2.31.0
+base58>=2.1.1
