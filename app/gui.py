@@ -9,6 +9,7 @@ from app.config import AppConfig, WalletTarget
 from app.executor import SwapExecutor
 from app.monitor import MultiTradeMonitor
 from app.parser import DetectedTrade
+from app.wallet import load_keypair
 
 
 class Theme:
@@ -442,14 +443,35 @@ class CopyTradeApp(ctk.CTk):
         settings.grid_columnconfigure(1, weight=1)
         self._section_title(settings, "✨", "Global settings", row=0)
 
-        self.copy_key_entry = self._labeled_entry(
+        copy_lbl = ctk.CTkFrame(settings, fg_color="transparent")
+        copy_lbl.grid(row=1, column=0, padx=(18, 8), pady=7, sticky="nw")
+        ctk.CTkLabel(copy_lbl, text="🔐", font=Theme.FONT_EMOJI, width=22).pack(side="left", anchor="n")
+        copy_lbl_text = ctk.CTkFrame(copy_lbl, fg_color="transparent")
+        copy_lbl_text.pack(side="left")
+        ctk.CTkLabel(
+            copy_lbl_text, text="Copy wallet", font=Theme.FONT_BODY, text_color=Theme.TEXT_MUTED, anchor="w"
+        ).pack(anchor="w")
+        ctk.CTkLabel(
+            copy_lbl_text,
+            text="seed phrase or private key",
+            font=Theme.FONT_SMALL,
+            text_color=Theme.TEXT_DIM,
+            anchor="w",
+        ).pack(anchor="w")
+
+        self.copy_wallet_box = ctk.CTkTextbox(
             settings,
-            "Copy wallet key",
-            1,
-            icon="🔐",
-            show="♡",
-            placeholder="Base58 private key for all copies",
+            height=58,
+            corner_radius=12,
+            border_width=1,
+            border_color=Theme.INPUT_BORDER,
+            fg_color=Theme.INPUT,
+            text_color=Theme.TEXT,
+            font=Theme.FONT_BODY,
+            wrap="word",
         )
+        self.copy_wallet_box.grid(row=1, column=1, padx=(8, 18), pady=7, sticky="ew")
+
         self.slippage_entry = self._labeled_entry(settings, "Slippage (bps)", 2, icon="🌊", placeholder="300")
         self.poll_entry = self._labeled_entry(settings, "Poll interval (s)", 3, icon="⏱", placeholder="3")
         self.min_trade_entry = self._labeled_entry(settings, "Min trade (SOL)", 4, icon="💧", placeholder="0.01")
@@ -473,7 +495,7 @@ class CopyTradeApp(ctk.CTk):
         self.remember_key_var = ctk.BooleanVar(value=False)
         ctk.CTkCheckBox(
             opts,
-            text="💾  remember private keys locally",
+            text="💾  remember copy wallet locally",
             variable=self.remember_key_var,
             font=Theme.FONT_SMALL,
             text_color=Theme.TEXT_MUTED,
@@ -648,6 +670,14 @@ class CopyTradeApp(ctk.CTk):
         if hasattr(self, "target_rows"):
             self._relayout_target_rows()
 
+    def _get_copy_wallet_secret(self) -> str:
+        return self.copy_wallet_box.get("1.0", "end").strip()
+
+    def _set_copy_wallet_secret(self, secret: str) -> None:
+        self.copy_wallet_box.delete("1.0", "end")
+        if secret:
+            self.copy_wallet_box.insert("1.0", secret)
+
     def _set_status_pill(self, emoji: str, text: str, bg: str, fg: str) -> None:
         for child in self.status_pill.winfo_children():
             child.destroy()
@@ -665,7 +695,7 @@ class CopyTradeApp(ctk.CTk):
         c = self.config
         self.rpc_entry.insert(0, c.rpc_url)
         if c.copy_wallet_key:
-            self.copy_key_entry.insert(0, c.copy_wallet_key)
+            self._set_copy_wallet_secret(c.copy_wallet_key)
         self.slippage_entry.insert(0, str(c.slippage_bps))
         self.poll_entry.insert(0, str(c.poll_interval_sec))
         self.min_trade_entry.insert(0, str(c.min_sol_trade))
@@ -728,14 +758,23 @@ class CopyTradeApp(ctk.CTk):
         if targets is None:
             return None
 
-        copy_key = self.copy_key_entry.get().strip()
-        if not copy_key:
-            messagebox.showerror("missing info~", "Copy wallet private key is required in global settings.")
+        copy_secret = self._get_copy_wallet_secret()
+        if not copy_secret:
+            messagebox.showerror(
+                "missing info~",
+                "Copy wallet seed phrase or private key is required in global settings.",
+            )
+            return None
+
+        try:
+            load_keypair(copy_secret)
+        except ValueError as exc:
+            messagebox.showerror("invalid copy wallet~", str(exc))
             return None
 
         return AppConfig(
             rpc_url=self.rpc_entry.get().strip() or AppConfig.rpc_url,
-            copy_wallet_key=copy_key,
+            copy_wallet_key=copy_secret,
             targets=targets,
             slippage_bps=slippage,
             poll_interval_sec=poll,

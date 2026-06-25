@@ -12,6 +12,7 @@ from solders.transaction import VersionedTransaction
 
 from app.config import JUPITER_QUOTE_URL, JUPITER_SWAP_URL, SOL_MINT
 from app.parser import DetectedTrade
+from app.wallet import load_keypair
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class SwapExecutor:
         on_log: Callable[[str], None] | None = None,
     ) -> None:
         self.client = Client(rpc_url)
-        self.keypair = Keypair.from_base58_string(copy_wallet_key.strip())
+        self.keypair = load_keypair(copy_wallet_key)
         self.pubkey = self.keypair.pubkey()
         self.multiplier = multiplier
         self.slippage_bps = slippage_bps
