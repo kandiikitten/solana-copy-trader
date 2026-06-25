@@ -89,6 +89,7 @@ class CopyTradeApp(ctk.CTk):
         self._build_rpc_dropdown()
         self._build_body()
         self._load_config_into_form()
+        self.bind("<Configure>", self._on_window_resize)
 
     def _setup_ttk_styles(self) -> None:
         style = ttk.Style()
@@ -266,7 +267,6 @@ class CopyTradeApp(ctk.CTk):
             border_width=1,
             border_color=Theme.CARD_BORDER,
         )
-        row_frame.pack(fill="x", padx=12, pady=6)
         row_frame.grid_columnconfigure(1, weight=1)
 
         header = ctk.CTkFrame(row_frame, fg_color="transparent")
@@ -277,8 +277,8 @@ class CopyTradeApp(ctk.CTk):
             header, text=f"👛  wallet #{idx}", font=Theme.FONT_BODY, text_color=Theme.LAVENDER
         ).grid(row=0, column=0, sticky="w")
 
-        label_entry = self._entry(header, placeholder_text="nickname (optional)", width=140)
-        label_entry.grid(row=0, column=1, sticky="e", padx=(8, 8))
+        label_entry = self._entry(header, placeholder_text="nickname (optional)")
+        label_entry.grid(row=0, column=1, sticky="ew", padx=(8, 8))
 
         def remove_this() -> None:
             self._remove_target_row(row_widgets)
@@ -358,6 +358,16 @@ class CopyTradeApp(ctk.CTk):
                 copy_key_entry.insert(0, target.copy_wallet_key)
             self._set_row_multiplier(row_widgets, target.multiplier)
 
+        self._relayout_target_rows()
+
+    def _relayout_target_rows(self) -> None:
+        for i, row in enumerate(self.target_rows):
+            row.frame.grid(row=i, column=0, sticky="ew", padx=12, pady=5)
+            self.targets_list.grid_rowconfigure(i, weight=0)
+        self.targets_list.grid_columnconfigure(0, weight=1)
+        if self.target_rows:
+            self.targets_list.grid_rowconfigure(len(self.target_rows), weight=1)
+
     @staticmethod
     def _format_multiplier(value: float) -> str:
         if value < 1:
@@ -378,6 +388,7 @@ class CopyTradeApp(ctk.CTk):
         row.frame.destroy()
         self.target_rows.remove(row)
         self._renumber_target_labels()
+        self._relayout_target_rows()
 
     def _renumber_target_labels(self) -> None:
         for i, row in enumerate(self.target_rows, start=1):
@@ -390,23 +401,22 @@ class CopyTradeApp(ctk.CTk):
     def _build_body(self) -> None:
         body = ctk.CTkFrame(self, fg_color="transparent")
         body.grid(row=2, column=0, sticky="nsew", padx=24, pady=(16, 24))
-        body.grid_columnconfigure(0, weight=0, minsize=460)
-        body.grid_columnconfigure(1, weight=1)
+        body.grid_columnconfigure(0, weight=2, minsize=360)
+        body.grid_columnconfigure(1, weight=3, minsize=400)
         body.grid_rowconfigure(0, weight=1)
 
-        left_outer = ctk.CTkScrollableFrame(
-            body,
-            fg_color="transparent",
-            width=460,
-            scrollbar_button_color=Theme.CARD_BORDER,
-            scrollbar_button_hover_color=Theme.LAVENDER,
-        )
+        left_outer = ctk.CTkFrame(body, fg_color="transparent")
         left_outer.grid(row=0, column=0, sticky="nsew", padx=(0, 14))
         left_outer.grid_columnconfigure(0, weight=1)
+        left_outer.grid_rowconfigure(0, weight=1)
+        left_outer.grid_rowconfigure(1, weight=0)
+        left_outer.grid_rowconfigure(2, weight=0)
+        left_outer.grid_rowconfigure(3, weight=0)
 
         targets_card = self._card(left_outer)
-        targets_card.pack(fill="x", pady=(0, 12))
+        targets_card.grid(row=0, column=0, sticky="nsew", pady=(0, 10))
         targets_card.grid_columnconfigure(0, weight=1)
+        targets_card.grid_rowconfigure(1, weight=1)
 
         targets_header = ctk.CTkFrame(targets_card, fg_color="transparent")
         targets_header.grid(row=0, column=0, sticky="ew", padx=18, pady=(16, 4))
@@ -434,7 +444,7 @@ class CopyTradeApp(ctk.CTk):
         ).grid(row=0, column=1, rowspan=2, sticky="e")
 
         self.targets_list = ctk.CTkFrame(targets_card, fg_color="transparent")
-        self.targets_list.grid(row=1, column=0, sticky="ew", pady=(4, 8))
+        self.targets_list.grid(row=1, column=0, sticky="nsew", padx=0, pady=(4, 8))
         self.targets_list.grid_columnconfigure(0, weight=1)
 
         self.show_key_var = ctk.BooleanVar(value=False)
@@ -452,7 +462,7 @@ class CopyTradeApp(ctk.CTk):
         ).grid(row=2, column=0, padx=18, pady=(0, 14), sticky="w")
 
         settings = self._card(left_outer)
-        settings.pack(fill="x", pady=(0, 12))
+        settings.grid(row=1, column=0, sticky="ew", pady=(0, 10))
         settings.grid_columnconfigure(1, weight=1)
         self._section_title(settings, "✨", "Global settings", row=0)
 
@@ -490,7 +500,7 @@ class CopyTradeApp(ctk.CTk):
         ).pack(anchor="w", pady=3)
 
         controls = ctk.CTkFrame(left_outer, fg_color="transparent")
-        controls.pack(fill="x", pady=(4, 8))
+        controls.grid(row=2, column=0, sticky="ew", pady=(0, 8))
         controls.grid_columnconfigure((0, 1, 2), weight=1)
 
         self.start_btn = self._cute_button(controls, "🚀  start copying", self._start)
@@ -513,15 +523,17 @@ class CopyTradeApp(ctk.CTk):
         warning_card = ctk.CTkFrame(
             left_outer, corner_radius=14, fg_color="#2a1f14", border_width=1, border_color="#4a3520"
         )
-        warning_card.pack(fill="x", pady=(4, 0))
-        ctk.CTkLabel(
+        warning_card.grid(row=3, column=0, sticky="ew")
+        warning_card.grid_columnconfigure(0, weight=1)
+        self.warning_label = ctk.CTkLabel(
             warning_card,
             text="🐱  each target can use a different copy wallet + multiplier. never share your private keys~",
             font=Theme.FONT_SMALL,
             text_color=Theme.PEACH,
-            wraplength=410,
+            wraplength=360,
             justify="left",
-        ).pack(padx=16, pady=12, anchor="w")
+        )
+        self.warning_label.grid(row=0, column=0, padx=16, pady=12, sticky="ew")
 
         right = self._card(body)
         right.grid(row=0, column=1, sticky="nsew")
@@ -642,6 +654,14 @@ class CopyTradeApp(ctk.CTk):
                 text_color=Theme.TEXT_DIM,
             )
 
+    def _on_window_resize(self, event) -> None:
+        if event.widget is not self:
+            return
+        width = max(self.winfo_width(), 1)
+        left_width = max(260, int(width * 0.38) - 60)
+        if hasattr(self, "warning_label"):
+            self.warning_label.configure(wraplength=left_width)
+
     def _toggle_key_visibility(self) -> None:
         show = "" if self.show_key_var.get() else "♡"
         for row in self.target_rows:
@@ -675,6 +695,7 @@ class CopyTradeApp(ctk.CTk):
                 self._add_target_row(target)
         else:
             self._add_target_row()
+        self._relayout_target_rows()
 
     def _read_targets(self) -> list[WalletTarget] | None:
         targets: list[WalletTarget] = []
