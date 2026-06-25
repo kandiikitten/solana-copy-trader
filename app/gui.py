@@ -82,10 +82,11 @@ class CopyTradeApp(ctk.CTk):
         self.configure(fg_color=Theme.BG)
 
         self.grid_columnconfigure(0, weight=1)
-        self.grid_rowconfigure(1, weight=1)
+        self.grid_rowconfigure(2, weight=1)
 
         self._setup_ttk_styles()
         self._build_header()
+        self._build_rpc_dropdown()
         self._build_body()
         self._load_config_into_form()
 
@@ -238,7 +239,20 @@ class CopyTradeApp(ctk.CTk):
         self.status_pill.pack(side="right", padx=(10, 0))
 
         self.balance_pill = self._pill(right, "◎  — wallets", Theme.CARD, Theme.MINT)
-        self.balance_pill.pack(side="right", padx=(0, 6))
+        self.balance_pill.pack(side="right", padx=(6, 0))
+
+        self.rpc_pill = ctk.CTkButton(
+            right,
+            text="🌐  RPC  ▸",
+            command=self._toggle_rpc,
+            height=34,
+            corner_radius=20,
+            fg_color=Theme.CARD_BORDER,
+            hover_color=Theme.CARD_HOVER,
+            text_color=Theme.TEXT_DIM,
+            font=Theme.FONT_SMALL,
+        )
+        self.rpc_pill.pack(side="right", padx=(0, 6))
 
         accent = ctk.CTkFrame(self, height=3, corner_radius=0, fg_color=Theme.PINK)
         accent.grid(row=0, column=0, sticky="sew")
@@ -375,7 +389,7 @@ class CopyTradeApp(ctk.CTk):
 
     def _build_body(self) -> None:
         body = ctk.CTkFrame(self, fg_color="transparent")
-        body.grid(row=1, column=0, sticky="nsew", padx=24, pady=(16, 24))
+        body.grid(row=2, column=0, sticky="nsew", padx=24, pady=(16, 24))
         body.grid_columnconfigure(0, weight=0, minsize=460)
         body.grid_columnconfigure(1, weight=1)
         body.grid_rowconfigure(0, weight=1)
@@ -509,8 +523,6 @@ class CopyTradeApp(ctk.CTk):
             justify="left",
         ).pack(padx=16, pady=12, anchor="w")
 
-        self._build_rpc_panel(left_outer)
-
         right = self._card(body)
         right.grid(row=0, column=1, sticky="nsew")
         right.grid_columnconfigure(0, weight=1)
@@ -586,54 +598,49 @@ class CopyTradeApp(ctk.CTk):
 
         self._append_log("hii~ add wallet targets and hit start ✨")
 
-    def _build_rpc_panel(self, parent) -> None:
-        rpc_card = ctk.CTkFrame(
-            parent,
-            corner_radius=12,
-            fg_color=Theme.BG,
+    def _build_rpc_dropdown(self) -> None:
+        self.rpc_dropdown = ctk.CTkFrame(
+            self,
+            corner_radius=0,
+            fg_color=Theme.CARD,
             border_width=1,
             border_color=Theme.CARD_BORDER,
         )
-        rpc_card.pack(fill="x", pady=(10, 0))
+        self.rpc_dropdown.grid_columnconfigure(0, weight=1)
 
-        self.rpc_toggle_btn = ctk.CTkButton(
-            rpc_card,
-            text="🌐  RPC settings   ▸",
-            command=self._toggle_rpc,
-            height=32,
-            corner_radius=10,
-            font=Theme.FONT_SMALL,
-            fg_color="transparent",
-            hover_color=Theme.CARD_BORDER,
-            text_color=Theme.TEXT_DIM,
-            anchor="w",
-        )
-        self.rpc_toggle_btn.pack(fill="x", padx=8, pady=6)
-
-        self.rpc_panel = ctk.CTkFrame(rpc_card, fg_color="transparent")
-        self.rpc_panel.grid_columnconfigure(0, weight=1)
+        inner = ctk.CTkFrame(self.rpc_dropdown, fg_color="transparent")
+        inner.grid(row=0, column=0, sticky="ew", padx=24, pady=10)
+        inner.grid_columnconfigure(1, weight=1)
 
         ctk.CTkLabel(
-            self.rpc_panel,
-            text="only change this if you have a custom RPC endpoint",
+            inner,
+            text="🔗  RPC endpoint",
             font=Theme.FONT_SMALL,
-            text_color=Theme.TEXT_DIM,
-        ).grid(row=0, column=0, padx=12, pady=(4, 6), sticky="w")
+            text_color=Theme.TEXT_MUTED,
+        ).grid(row=0, column=0, padx=(0, 12), sticky="w")
 
         self.rpc_entry = self._entry(
-            self.rpc_panel,
+            inner,
             placeholder_text="https://your-fast-rpc.solana.com",
         )
-        self.rpc_entry.grid(row=1, column=0, padx=12, pady=(0, 12), sticky="ew")
+        self.rpc_entry.grid(row=0, column=1, sticky="ew")
 
     def _toggle_rpc(self) -> None:
         self._rpc_expanded = not self._rpc_expanded
         if self._rpc_expanded:
-            self.rpc_panel.pack(fill="x", after=self.rpc_toggle_btn)
-            self.rpc_toggle_btn.configure(text="🌐  RPC settings   ▾", text_color=Theme.TEXT_MUTED)
+            self.rpc_dropdown.grid(row=1, column=0, sticky="ew")
+            self.rpc_pill.configure(
+                text="🌐  RPC  ▾",
+                fg_color=Theme.CARD,
+                text_color=Theme.SKY,
+            )
         else:
-            self.rpc_panel.pack_forget()
-            self.rpc_toggle_btn.configure(text="🌐  RPC settings   ▸", text_color=Theme.TEXT_DIM)
+            self.rpc_dropdown.grid_remove()
+            self.rpc_pill.configure(
+                text="🌐  RPC  ▸",
+                fg_color=Theme.CARD_BORDER,
+                text_color=Theme.TEXT_DIM,
+            )
 
     def _toggle_key_visibility(self) -> None:
         show = "" if self.show_key_var.get() else "♡"
